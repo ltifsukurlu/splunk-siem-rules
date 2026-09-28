@@ -3,4 +3,6 @@
     "search": "index=* (\"'\" OR \"%27\" OR \"UNION SELECT\" OR \"WAITFOR DELAY\" OR \"SLEEP(\") | stats count by clientip, uri_path"
   },
   "SIGMA_02_XSS_Script_Injection": {
-    "search": "index=* (\"
+    "search": "index=* (\"<script\" OR \"%3Cscript\" OR \"onerror=\" OR \"javascript:\") | stats count by clientip, uri_path"
+  }
+}
