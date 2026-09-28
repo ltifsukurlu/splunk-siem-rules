@@ -1,6 +1,6 @@
 {
   "SIGMA_01_SQL_Injection_Detection": {
-    "search": "index=* (\"' OR \" OR \"%27\" OR \"UNION SELECT\" OR \"WAITFOR DELAY\" OR \"SLEEP(\") | stats count by clientip, uri_path"
+    "search": "index=* (\"'\" OR \"%27\" OR \"UNION SELECT\" OR \"WAITFOR DELAY\" OR \"SLEEP(\") | stats count by clientip, uri_path"
   },
   "SIGMA_02_XSS_Script_Injection": {
     "search": "index=* (\"
