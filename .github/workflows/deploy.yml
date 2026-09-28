@@ -24,3 +24,7 @@ jobs:
 
       - name: Run deployment script
         run: python deploy_rules.py
+        env:
+          SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
+          SPLUNK_USER: ${{ secrets.SPLUNK_USER }}
+          SPLUNK_PASS: ${{ secrets.SPLUNK_PASS }}
