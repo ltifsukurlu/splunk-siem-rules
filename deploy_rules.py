@@ -1,6 +1,6 @@
 import os
-import json
 import requests
+import configparser
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -12,60 +12,58 @@ SPLUNK_PASS = os.environ["SPLUNK_PASS"]
 
 API_URL = f"{SPLUNK_HOST}/servicesNS/nobody/search/saved/searches"
 
+rules_dir = "rules"
 
-# rules.json faylını oxuyuruq
-try:
-    with open("rules.json", "r", encoding="utf-8") as f:
-        rules = json.load(f)
+if not os.path.exists(rules_dir):
+    print(f"XƏTA: '{rules_dir}' qovluğu tapılmadı!")
+    exit(1)
 
-except json.JSONDecodeError as e:
-    print("ERROR: rules.json düzgün JSON formatında deyil.")
-    print(f"Line: {e.lineno}")
-    print(f"Column: {e.colno}")
-    print(f"Message: {e.msg}")
-    raise
+for file_name in os.listdir(rules_dir):
+    if file_name.endswith(".conf"):
+        file_path = os.path.join(rules_dir, file_name)
+        config = configparser.ConfigParser()
+        
+        try:
+            config.read(file_path, encoding="utf-8")
+        except Exception as e:
+            print(f"[-] {file_name} faylı oxunarkən xəta yarandı: {e}")
+            continue
 
+        for section in config.sections():
+            rule_name = section
+            if config.has_option(section, "search"):
+                search_query = config.get(section, "search")
+            else:
+                print(f"[-] {rule_name} üçün 'search' parametri tapılmadı.")
+                continue
 
-# Qaydaları Splunk-a göndəririk
-for rule_name, rule_data in rules.items():
+            payload = {
+                "name": rule_name,
+                "search": search_query,
+                "is_scheduled": "1",
+                "cron_schedule": "*/5 * * * *",
+                "action.email": "1",
+                "action.email.to": "letifsukurlu144@gmail.com",
+                "action.email.useNSSubject": "1",
+                "action.email.subject": f"Splunk Alert: {rule_name}",
+                "action.email.format": "table",
+                "action.email.sendresults": "1"
+            }
 
-    payload = {
-        "search": rule_data["search"],
-        "action.email": "1",
-        "action.email.to": "letifsukurlu144@gmail.com",
-        "alert.suppress": "1",
-        "alert.suppress.period": "5m",
-        "alert.track": "1",
-        "is_scheduled": "1",
-        "cron_schedule": "* * * * *"
-    }
+            try:
+                response = requests.post(
+                    API_URL,
+                    data=payload,
+                    auth=(SPLUNK_USER, SPLUNK_PASS),
+                    verify=False
+                )
 
-    endpoint = f"{API_URL}/{rule_name}"
+                if response.status_code in [200, 201]:
+                    print(f"[+] Uğurla əlavə edildi: {rule_name} ({file_name})")
+                elif response.status_code == 409:
+                    print(f"[!] Qayda artıq mövcuddur: {rule_name}")
+                else:
+                    print(f"[-] Xəta ({response.status_code}) - {rule_name}: {response.text}")
 
-    response = requests.post(
-        endpoint,
-        data=payload,
-        auth=(SPLUNK_USER, SPLUNK_PASS),
-        verify=False
-    )
-
-    if response.status_code in [200, 201]:
-        print(f"[SUCCESS] Rule yeniləndi: {rule_name}")
-
-    else:
-        payload["name"] = rule_name
-
-        create_resp = requests.post(
-            API_URL,
-            data=payload,
-            auth=(SPLUNK_USER, SPLUNK_PASS),
-            verify=False
-        )
-
-        if create_resp.status_code in [200, 201]:
-            print(f"[CREATED] Rule yaradıldı: {rule_name}")
-        else:
-            print(
-                f"[ERROR] {rule_name}: "
-                f"{create_resp.status_code} - {create_resp.text}"
-            )
+            except Exception as e:
+                print(f"[-] İstisna xətası ({rule_name}): {e}")
